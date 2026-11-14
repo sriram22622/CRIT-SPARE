@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0b0e">
+  <title>CRIT-SPARE • Scan a part</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Material+Symbols+Outlined:FILL@0..1&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+</head>
+<body class="page page--scan" data-page="scan">
+  <div class="toast-region" data-toast-region aria-live="polite" role="status" hidden></div>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <header class="topbar">
+    <a class="brand" href="index.html">CRIT-SPARE</a>
+    <nav class="topnav" aria-label="Main navigation">
+      
+      <a href="dashboard.html">Dashboard</a>
+    </nav>
+    <div class="topbar__actions">
+      <a class="button button--muted button--small" data-action="sign-in" href="auth.html">Sign in</a>
+      <button type="button" class="button button--muted button--small" data-action="logout" hidden>Logout</button>
+    </div>
+  </header>
+  <main id="main-content" class="site-main site-main--dense scan-main">
+    <section class="dashboard-panel card-glass scan-panel">
+      <p class="eyebrow">PART SCANNER</p>
+      <h1>Scan a part code</h1>
+      <p>Point your phone camera at the QR code on a part.</p>
+      <p class="pill" data-scan-status aria-live="polite" role="status">Ready to scan.</p>
+      <div class="scan-mobile-only" data-scan-controls>
+        <video class="scan-camera" data-scan-video autoplay muted playsinline hidden></video>
+        <button class="button button--gold" type="button" data-action="start-camera">Open camera</button>
+        <form data-manual-scan>
+          <label for="scan-code">Or enter the part code</label>
+          <div class="searchbox"><input id="scan-code" name="code" autocomplete="off" required></div>
+          <button class="button button--muted" type="submit">Find part</button>
+        </form>
+      </div>
+      <p class="pill scan-desktop-note" data-desktop-scan-note hidden>QR scanning is available on phones. Open this page on a phone to scan.</p>
+      <section class="scan-result card-glass" data-scan-result hidden aria-live="polite">
+        <h2 data-result-name></h2>
+        <p data-result-details></p>
+        <a class="button button--muted" data-result-link href="inventory.html">Open inventory</a>
+      </section>
+    </section>
+  </main><footer class="footer"><a class="brand" href="index.html">CRIT-SPARE</a><span>© 2025 CRIT-SPARE</span><button class="footer-policy-link" type="button" popovertarget="privacy-popover">Privacy Policy</button><button class="footer-policy-link" type="button" popovertarget="cookies-popover">Cookies &amp; Storage</button></footer>
+  <nav class="dock" aria-label="Primary navigation">
+    <a class="dock__item" href="index.html"><span class="material-symbols-outlined">home</span><small>Home</small></a>
+    <a class="dock__item" href="inventory.html"><span class="material-symbols-outlined">inventory_2</span><small>Inventory</small></a>
+    <a class="dock__item" href="dashboard.html"><span class="material-symbols-outlined">hub</span><small>Dashboard</small></a>
+  </nav>
+  <script type="module" src="js/main.js"></script>
+<div class="policy-popover" id="privacy-popover" popover="auto" aria-labelledby="privacy-popover-title"><header class="policy-popover__header"><div><p class="eyebrow">INFORMATION HANDLING</p><h2 id="privacy-popover-title">Privacy Policy</h2></div><button class="icon-button" type="button" popovertarget="privacy-popover" popovertargetaction="hide" aria-label="Close Privacy Policy">×</button></header><div class="policy-popover__body"><p>CRIT-SPARE processes the shop name, operator name, station, email address, and phone number used for verification when a shop account is created. Operators may also add inventory, quantity, bin, audit, invoice, and activity records.</p><h3>How information is used</h3><p>This information supports sign-in, phone verification, shop setup, inventory management, billing, audit history, and service protection. Shop records are associated with the shop and operator account that created them.</p><h3>Service providers</h3><p>Firebase Authentication handles account sign-in and Cloud Firestore stores shop data. Firebase phone verification and Google reCAPTCHA process phone verification data to help prevent abuse. Google Fonts receives ordinary browser requests for the typefaces and interface icons displayed by the site.</p><h3>Storage and choices</h3><p>The site uses browser storage for sign-in state and a remembered sign-in preference. reCAPTCHA may use security-related cookies. The current site does not use advertising or analytics tracking. For questions about account or shop data, contact your shop manager or project administrator.</p></div><footer class="policy-popover__footer"><a href="legal.html#privacy">Read the full Privacy Policy</a></footer></div>
+<div class="policy-popover" id="cookies-popover" popover="auto" aria-labelledby="cookies-popover-title"><header class="policy-popover__header"><div><p class="eyebrow">BROWSER STORAGE</p><h2 id="cookies-popover-title">Cookies &amp; Storage</h2></div><button class="icon-button" type="button" popovertarget="cookies-popover" popovertargetaction="hide" aria-label="Close Cookies and Storage">×</button></header><div class="policy-popover__body"><p>CRIT-SPARE currently uses storage needed for sign-in, phone verification, and your saved sign-in preference. It does not currently use advertising or analytics cookies.</p><h3>Authentication storage</h3><p>Firebase keeps the signed-in state in browser storage. “Remember sign-in on this device” keeps a session across browser restarts; with it off, the session lasts only for the current browser session.</p><h3>Security cookies</h3><p>Google reCAPTCHA may use cookies or similar storage to protect phone verification from abuse. Phone verification requires this security check.</p><h3>Preference storage</h3><p>A small browser entry remembers your sign-in-storage choice. You can change that choice using “Manage cookies &amp; sign-in storage” on the sign-in page. Clearing site data in your browser signs you out and removes saved preferences.</p></div><footer class="policy-popover__footer"><a href="legal.html#cookies">Read the full Cookies &amp; Storage details</a></footer></div></body>
+</html>

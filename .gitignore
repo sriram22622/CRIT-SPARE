@@ -1,0 +1,41 @@
+# Local environment files
+.env
+.env.*
+!.env.example
+.vscode/
+
+# Dependencies and generated logs
+node_modules/
+npm-debug.log*
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.firebase/
+
+# Local agent/project instructions are not part of the published app
+AGENTS.md
+
+# Credentials: never commit Firebase Admin/service account keys
+serviceAccount*.json
+*-firebase-adminsdk-*.json
+*-service-account*.json
+*.pem
+
+# Local Firebase browser configuration (keep out of GitHub)
+js/firebase-config.local.js
+
+# Synced project source material must not be published
+sources/
+
+# Common local secrets and signing keys
+*.key
+*.p12
+*.pfx
+*.mobileprovision
+
+# Local database and backup files
+*.sqlite
+*.sqlite3
+*.db
+*.bak
+*.backup

@@ -1,0 +1,194 @@
+export function startPaperCurl(canvas) {
+  if (!canvas) return false;
+
+  // Sync the WebGL drawing-buffer size with the CSS-driven layout size.
+  // This fires on initial layout and whenever the element is resized.
+  function syncSize() {
+    const w = canvas.clientWidth  || 1280;
+    const h = canvas.clientHeight || 720;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width  = w;
+      canvas.height = h;
+    }
+  }
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(syncSize).observe(canvas);
+  }
+  syncSize();
+
+  const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+  if (!gl) return;
+  const vs = `attribute vec2 a_position;
+varying vec2 v_texCoord;
+void main() {
+  v_texCoord = a_position * 0.5 + 0.5;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+  const fs = `precision highp float;
+
+uniform float u_time;
+uniform vec2 u_resolution;
+uniform vec2 u_mouse;
+varying vec2 v_texCoord;
+
+// Simplex-ish noise helper
+vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
+
+float snoise(vec2 v) {
+  const vec4 C = vec4(0.211324865405187, 0.366025403784439,
+                     -0.577350269189626, 0.024390243902439);
+  vec2 i  = floor(v + dot(v, C.yy) );
+  vec2 x0 = v -   i + dot(i, C.xx);
+  vec2 i1;
+  i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+  vec4 x12 = x0.xyxy + C.xxzz;
+  x12.xy -= i1;
+  i = mod289(i);
+  vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 ))
+    + i.x + vec3(0.0, i1.x, 1.0 ));
+  vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
+  m = m*m ;
+  m = m*m ;
+  vec3 x = 2.0 * fract(p * C.www) - 1.0;
+  vec3 h = abs(x) - 0.5;
+  vec3 ox = floor(x + 0.5);
+  vec3 a0 = x - ox;
+  m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
+  vec3 g;
+  g.x  = a0.x  * x0.x  + h.x  * x0.y;
+  g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+  return 130.0 * dot(m, g);
+}
+
+void main() {
+    vec2 uv = v_texCoord;
+    vec2 p = uv * 2.0 - 1.0;
+    
+    // Mouse interactive tilt light
+    vec2 mouseNorm = u_mouse / u_resolution;
+    vec2 lightPos = mix(vec2(0.3, 0.2), mouseNorm, 0.35);
+
+    // Realistic physical paper curvature & folding deformation math
+    // 1. Subtle horizontal cylindrical curl (thermal paper spool memory)
+    float spoolCurl = sin(uv.y * 3.14159 * 2.2 + 0.4) * 0.12;
+    // 2. Crease / diagonal fold line across upper third
+    float foldLine1 = sin(uv.x * 2.8 - uv.y * 1.5 + 0.6);
+    float foldCrease1 = exp(-abs(foldLine1) * 12.0) * 0.22;
+    // 3. Second softer micro fold near bottom tear
+    float foldLine2 = cos(uv.x * 3.5 + uv.y * 2.0 - 1.2);
+    float foldCrease2 = exp(-abs(foldLine2) * 18.0) * 0.15;
+    // 4. Subtle organic micro fiber bumps & rumple
+    float paperFiber = snoise(uv * vec2(45.0, 75.0)) * 0.035;
+    float paperWrinkle = snoise(uv * vec2(6.0, 10.0) + vec2(0.5, 0.2)) * 0.08;
+
+    // Combined Height map Z(u, v)
+    float height = spoolCurl + foldCrease1 - foldCrease2 + paperWrinkle + paperFiber;
+
+    // Surface Normal estimation via central differences
+    float eps = 0.008;
+    float hL = sin((uv.y) * 6.9) * 0.12 + exp(-abs(sin((uv.x - eps)*2.8 - uv.y*1.5 + 0.6))*12.0)*0.22 + snoise((uv + vec2(-eps, 0.0))*vec2(6.0,10.0))*0.08;
+    float hR = sin((uv.y) * 6.9) * 0.12 + exp(-abs(sin((uv.x + eps)*2.8 - uv.y*1.5 + 0.6))*12.0)*0.22 + snoise((uv + vec2(eps, 0.0))*vec2(6.0,10.0))*0.08;
+    float hD = sin((uv.y - eps) * 6.9) * 0.12 + exp(-abs(sin(uv.x*2.8 - (uv.y-eps)*1.5 + 0.6))*12.0)*0.22 + snoise((uv + vec2(0.0, -eps))*vec2(6.0,10.0))*0.08;
+    float hU = sin((uv.y + eps) * 6.9) * 0.12 + exp(-abs(sin(uv.x*2.8 - (uv.y+eps)*1.5 + 0.6))*12.0)*0.22 + snoise((uv + vec2(0.0, eps))*vec2(6.0,10.0))*0.08;
+
+    vec3 normal = normalize(vec3( (hL - hR) * 2.8, (hD - hU) * 2.8, 1.0 ));
+
+    // Key Light vector (angled celestial gold key light + fill light)
+    vec3 lightDir = normalize(vec3(lightPos - uv, 0.55));
+    vec3 viewDir = vec3(0.0, 0.0, 1.0);
+
+    // Diffuse Lambertian
+    float diff = max(dot(normal, lightDir), 0.0);
+    
+    // Specular Blinn-Phong (soft satin thermal paper sheen)
+    vec3 halfDir = normalize(lightDir + viewDir);
+    float spec = pow(max(dot(normal, halfDir), 0.0), 16.0);
+
+    // Ambient occlusion in deep folds & spool trough
+    float ao = clamp(1.0 - abs(spoolCurl * 2.2) - (foldCrease1 * 0.6), 0.55, 1.0);
+
+    // Cylindrical cylinder shadow gradient (light falls off across the curl curve)
+    float curlShadow = smoothstep(-0.15, 0.25, normal.x * 0.5 + normal.y * 0.4);
+
+    // Celestial lighting colors: Warm gold rim glow (#FFB800) + pure clean light + shadow ambient
+    vec3 paperBase = vec3(1.0, 1.0, 1.0);
+    vec3 goldAccent = vec3(1.0, 0.72, 0.0); // #FFB800
+    vec3 deepShadow = vec3(0.72, 0.74, 0.78);
+
+    // Lighting composition
+    vec3 lighting = mix(deepShadow, paperBase, diff * ao);
+    lighting += spec * 0.35 * vec3(1.0, 0.98, 0.92);
+    // Subtle grazing celestial gold bounce on the curled ridge
+    float rim = pow(1.0 - max(dot(normal, viewDir), 0.0), 3.0);
+    lighting += rim * 0.18 * goldAccent;
+
+    // Calculate transparency overlay:
+    // This shader acts as an atmospheric 3D lighting & shadow overlay layer on top of the receipt
+    // In bright areas it adds specular gloss and fold highlight; in creases it multiplies soft shadows
+    float shadowIntensity = (1.0 - (diff * ao)) * 0.38;
+    float highlightIntensity = (spec * 0.45) + (rim * 0.22);
+    
+    vec4 finalColor;
+    if (diff * ao < 0.85) {
+        // Shadow cast on fold
+        finalColor = vec4(0.08, 0.09, 0.12, shadowIntensity);
+    } else {
+        // Specular & paper sheen highlight
+        finalColor = vec4(mix(vec3(1.0), goldAccent, rim * 0.4), highlightIntensity);
+    }
+
+    // Edge vignette along receipt margins to simulate paper thickness & curved roll tension
+    float edgeDist = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
+    float edgeVignette = smoothstep(0.0, 0.04, edgeDist);
+    finalColor.a = mix(finalColor.a + 0.15, finalColor.a, edgeVignette);
+
+    gl_FragColor = finalColor;
+}`;
+  function cs(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    return s;
+  }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, cs(gl.VERTEX_SHADER, vs));
+  gl.attachShader(prog, cs(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(prog);
+  gl.useProgram(prog);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  const pos = gl.getAttribLocation(prog, 'a_position');
+  gl.enableVertexAttribArray(pos);
+  gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+  const uTime = gl.getUniformLocation(prog, 'u_time');
+  const uRes = gl.getUniformLocation(prog, 'u_resolution');
+  const uMouse = gl.getUniformLocation(prog, 'u_mouse');
+
+  // u_mouse is in pixel coordinates matching u_resolution (ShaderToy convention).
+  // Shaders that need normalized coords should use: u_mouse / u_resolution.
+  let mouse = { x: canvas.width / 2, y: canvas.height / 2 };
+  window.addEventListener('mousemove', (event) => {
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width && rect.height) {
+      const nx = (event.clientX - rect.left) / rect.width;
+      const ny = 1.0 - (event.clientY - rect.top) / rect.height;
+      mouse.x = nx * canvas.width;
+      mouse.y = ny * canvas.height;
+    }
+  });
+
+  function render(t) {
+    if (typeof ResizeObserver === 'undefined') syncSize();
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    if (uTime) gl.uniform1f(uTime, t * 0.001);
+    if (uRes) gl.uniform2f(uRes, canvas.width, canvas.height);
+    if (uMouse) gl.uniform2f(uMouse, mouse.x, mouse.y);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    requestAnimationFrame(render);
+  }
+  render(0);
+return true;
+}

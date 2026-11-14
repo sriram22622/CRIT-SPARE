@@ -1,0 +1,134 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Assumed model: shops/{uid}, operators/{uid}, and private per-shop
+    // subcollections parts, invoices, stockMovements, and reorderOrders.
+    // All writes are scoped to the authenticated owner UID; no client deletes.
+    function signedInAs(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+    function boundedString(value, max) {
+      return value is string && value.size() > 0 && value.size() <= max;
+    }
+    function validShop(d, uid) {
+      return d.keys().hasOnly(['ownerUid', 'name', 'station', 'createdAt'])
+        && d.keys().hasAll(['ownerUid', 'name', 'station', 'createdAt'])
+        && d.ownerUid == uid && boundedString(d.name, 160)
+        && boundedString(d.station, 80) && d.createdAt is timestamp;
+    }
+    function validOperator(d, uid) {
+      return d.keys().hasOnly(['shopId', 'name', 'identity', 'phone', 'role', 'station', 'shopName', 'createdAt', 'termsAcceptedAt'])
+        && d.keys().hasAll(['shopId', 'name', 'identity', 'role', 'station', 'shopName', 'createdAt'])
+        && d.shopId == uid && boundedString(d.name, 120)
+        && boundedString(d.identity, 254) && d.identity.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$')
+        && (!d.keys().hasAny(['phone']) || (boundedString(d.phone, 16) && d.phone.matches('^\\+[1-9][0-9]{7,14}$')))
+        && d.role == 'Lead Technician' && boundedString(d.station, 80)
+        && boundedString(d.shopName, 160) && d.createdAt is timestamp
+        && (!d.keys().hasAny(['termsAcceptedAt']) || d.termsAcceptedAt is timestamp);
+    }
+    function validPart(d, uid) {
+      return d.keys().hasOnly(['name', 'sku', 'bin', 'qty', 'reserved', 'lowThreshold', 'criticalThreshold', 'reorderQuantity', 'unitPrice', 'shopId', 'createdAt', 'updatedAt'])
+        && d.keys().hasAll(['name', 'sku', 'bin', 'qty', 'reserved', 'lowThreshold', 'criticalThreshold', 'reorderQuantity', 'unitPrice', 'shopId', 'createdAt', 'updatedAt'])
+        && boundedString(d.name, 160) && boundedString(d.sku, 80)
+        && boundedString(d.bin, 40) && d.shopId == uid
+        && d.qty is int && d.qty >= 0 && d.qty <= 1000000
+        && d.reserved is int && d.reserved >= 0 && d.reserved <= 1000000
+        && d.lowThreshold is int && d.lowThreshold >= 0 && d.lowThreshold <= 1000000
+        && d.criticalThreshold is int && d.criticalThreshold >= 0 && d.criticalThreshold <= d.lowThreshold
+        && d.reorderQuantity is int && d.reorderQuantity > 0 && d.reorderQuantity <= 1000000
+        && d.unitPrice is number && d.unitPrice >= 0 && d.unitPrice <= 1000000000
+        && d.createdAt is timestamp && d.updatedAt is timestamp;
+    }
+    function validInvoice(d, uid) {
+      return d.keys().hasOnly(['shopId', 'operatorId', 'number', 'createdAt', 'status', 'operator', 'station', 'shopName', 'subtotal', 'tax', 'discount', 'total', 'paymentMode', 'transactionRef', 'items'])
+        && d.keys().hasAll(['shopId', 'operatorId', 'number', 'createdAt', 'status', 'operator', 'station', 'shopName', 'subtotal', 'tax', 'discount', 'total', 'paymentMode', 'transactionRef', 'items'])
+        && d.shopId == uid && d.operatorId == request.auth.uid
+        && boundedString(d.number, 40) && d.createdAt == request.time
+        && d.status == 'dispensed' && boundedString(d.operator, 120)
+        && boundedString(d.station, 80) && boundedString(d.shopName, 160)
+        && d.subtotal is number && d.subtotal >= 0
+        && d.tax is number && d.tax >= 0 && d.discount is number && d.discount >= 0
+        && d.total is number && d.total >= 0 && boundedString(d.paymentMode, 80)
+        && boundedString(d.transactionRef, 80) && d.items is list
+        && d.items.size() == 1
+        && d.items[0].keys().hasOnly(['partId', 'name', 'sku', 'bin', 'qty', 'unitPrice', 'amount'])
+        && d.items[0].keys().hasAll(['partId', 'name', 'sku', 'bin', 'qty', 'unitPrice', 'amount'])
+        && boundedString(d.items[0].partId, 128) && boundedString(d.items[0].name, 160)
+        && boundedString(d.items[0].sku, 80) && boundedString(d.items[0].bin, 40)
+        && d.items[0].qty is int && d.items[0].qty > 0 && d.items[0].qty <= 1000000
+        && d.items[0].unitPrice is number && d.items[0].unitPrice >= 0
+        && d.items[0].amount is number && d.items[0].amount >= 0;
+    }
+    function validMovement(d, uid) {
+      return d.keys().hasOnly(['shopId', 'operatorId', 'partId', 'partName', 'sku', 'action', 'quantityDelta', 'quantityAfter', 'note', 'invoiceId', 'createdAt'])
+        && d.keys().hasAll(['shopId', 'operatorId', 'partId', 'partName', 'sku', 'action', 'quantityDelta', 'quantityAfter', 'note', 'invoiceId', 'createdAt'])
+        && d.shopId == uid && d.operatorId == request.auth.uid
+        && boundedString(d.partId, 128) && boundedString(d.partName, 160)
+        && boundedString(d.sku, 80)
+        && d.action in ['dispense', 'restock', 'audit', 'scan_reconcile', 'emergency_reorder']
+        && d.quantityDelta is int && d.quantityDelta >= -1000000 && d.quantityDelta <= 1000000
+        && d.quantityAfter is int && d.quantityAfter >= 0 && d.quantityAfter <= 1000000
+        && d.note is string && d.note.size() <= 240
+        && (d.invoiceId == null || boundedString(d.invoiceId, 128))
+        && d.createdAt == request.time;
+    }
+    function validOrder(d, uid) {
+      return d.keys().hasOnly(['id', 'partId', 'sku', 'shopId', 'operatorId', 'qty', 'status', 'createdAt'])
+        && d.keys().hasAll(['id', 'partId', 'sku', 'shopId', 'operatorId', 'qty', 'status', 'createdAt'])
+        && boundedString(d.id, 128) && boundedString(d.partId, 128)
+        && boundedString(d.sku, 80) && d.shopId == uid
+        && d.operatorId == request.auth.uid && d.qty is int
+        && d.qty > 0 && d.qty <= 1000000 && d.status == 'submitted'
+        && d.createdAt == request.time;
+    }
+
+    match /operators/{operatorId} {
+      allow read: if signedInAs(operatorId);
+      allow create: if signedInAs(operatorId) && validOperator(request.resource.data, operatorId)
+        && request.resource.data.keys().hasAll(['phone', 'termsAcceptedAt'])
+        && request.resource.data.termsAcceptedAt == request.time
+        && request.resource.data.createdAt == request.time;
+      allow update: if signedInAs(operatorId) && validOperator(request.resource.data, operatorId)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['phone', 'name', 'station', 'shopName']);
+      allow delete: if false;
+    }
+    match /shops/{shopId} {
+      allow read: if signedInAs(shopId);
+      allow create: if signedInAs(shopId) && validShop(request.resource.data, shopId)
+        && request.resource.data.createdAt == request.time;
+      allow update: if signedInAs(shopId) && validShop(request.resource.data, shopId)
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'station']);
+      allow delete: if false;
+      match /parts/{partId} {
+        allow read: if signedInAs(shopId);
+        allow create: if signedInAs(shopId) && validPart(request.resource.data, shopId);
+        allow update: if signedInAs(shopId) && validPart(request.resource.data, shopId)
+          && request.resource.data.shopId == resource.data.shopId
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['qty', 'updatedAt']);
+        allow delete: if false;
+      }
+      match /invoices/{invoiceId} {
+        allow read: if signedInAs(shopId);
+        allow create: if signedInAs(shopId) && validInvoice(request.resource.data, shopId);
+        allow update, delete: if false;
+      }
+      match /stockMovements/{movementId} {
+        allow read: if signedInAs(shopId);
+        allow create: if signedInAs(shopId) && validMovement(request.resource.data, shopId);
+        allow update, delete: if false;
+      }
+      match /reorderOrders/{orderId} {
+        allow read: if signedInAs(shopId);
+        allow create: if signedInAs(shopId) && validOrder(request.resource.data, shopId);
+        allow update, delete: if false;
+      }
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
