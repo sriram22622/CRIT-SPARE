@@ -1,5 +1,7 @@
 export function startThermalBurnIn(canvas) {
   if (!canvas) return false;
+  const stopKey = Symbol.for('crit-spare.shader.stop');
+  canvas[stopKey]?.();
 
   // Sync the WebGL drawing-buffer size with the CSS-driven layout size.
   // This fires on initial layout and whenever the element is resized.
@@ -11,8 +13,10 @@ export function startThermalBurnIn(canvas) {
       canvas.height = h;
     }
   }
+  let resizeObserver;
   if (typeof ResizeObserver !== 'undefined') {
-    new ResizeObserver(syncSize).observe(canvas);
+    resizeObserver = new ResizeObserver(syncSize);
+    resizeObserver.observe(canvas);
   }
   syncSize();
 
@@ -169,7 +173,7 @@ void main() {
   // u_mouse is in pixel coordinates matching u_resolution (ShaderToy convention).
   // Shaders that need normalized coords should use: u_mouse / u_resolution.
   let mouse = { x: canvas.width / 2, y: canvas.height / 2 };
-  window.addEventListener('mousemove', (event) => {
+  const handleMouseMove = (event) => {
     const rect = canvas.getBoundingClientRect();
     if (rect.width && rect.height) {
       const nx = (event.clientX - rect.left) / rect.width;
@@ -177,17 +181,30 @@ void main() {
       mouse.x = nx * canvas.width;
       mouse.y = ny * canvas.height;
     }
-  });
+  };
+  window.addEventListener('mousemove', handleMouseMove);
 
+  let running = true;
+  let frameId = 0;
   function render(t) {
+    if (!running) return;
     if (typeof ResizeObserver === 'undefined') syncSize();
     gl.viewport(0, 0, canvas.width, canvas.height);
     if (uTime) gl.uniform1f(uTime, t * 0.001);
     if (uRes) gl.uniform2f(uRes, canvas.width, canvas.height);
     if (uMouse) gl.uniform2f(uMouse, mouse.x, mouse.y);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    requestAnimationFrame(render);
+    frameId = requestAnimationFrame(render);
   }
   render(0);
-return true;
+  const stop = () => {
+    if (!running) return;
+    running = false;
+    cancelAnimationFrame(frameId);
+    resizeObserver?.disconnect();
+    window.removeEventListener('mousemove', handleMouseMove);
+    if (canvas[stopKey] === stop) delete canvas[stopKey];
+  };
+  canvas[stopKey] = stop;
+  return stop;
 }

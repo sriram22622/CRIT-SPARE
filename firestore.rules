@@ -39,6 +39,39 @@ service cloud.firestore {
         && d.unitPrice is number && d.unitPrice >= 0 && d.unitPrice <= 1000000000
         && d.createdAt is timestamp && d.updatedAt is timestamp;
     }
+    function validInvoiceItem(item) {
+      return item is map
+        && item.keys().hasOnly(['partId', 'name', 'sku', 'bin', 'qty', 'unitPrice', 'amount'])
+        && item.keys().hasAll(['partId', 'name', 'sku', 'bin', 'qty', 'unitPrice', 'amount'])
+        && boundedString(item.partId, 128) && boundedString(item.name, 160)
+        && boundedString(item.sku, 80) && item.bin is string && item.bin.size() <= 40
+        && item.qty is int && item.qty > 0 && item.qty <= 1000000
+        && item.unitPrice is number && item.unitPrice >= 0 && item.unitPrice <= 1000000000
+        && item.amount is number && item.amount >= 0 && item.amount <= 1000000000000;
+    }
+    function validInvoiceItems(items) {
+      return items is list && items.size() > 0 && items.size() <= 20
+        && validInvoiceItem(items[0])
+        && (items.size() < 2 || validInvoiceItem(items[1]))
+        && (items.size() < 3 || validInvoiceItem(items[2]))
+        && (items.size() < 4 || validInvoiceItem(items[3]))
+        && (items.size() < 5 || validInvoiceItem(items[4]))
+        && (items.size() < 6 || validInvoiceItem(items[5]))
+        && (items.size() < 7 || validInvoiceItem(items[6]))
+        && (items.size() < 8 || validInvoiceItem(items[7]))
+        && (items.size() < 9 || validInvoiceItem(items[8]))
+        && (items.size() < 10 || validInvoiceItem(items[9]))
+        && (items.size() < 11 || validInvoiceItem(items[10]))
+        && (items.size() < 12 || validInvoiceItem(items[11]))
+        && (items.size() < 13 || validInvoiceItem(items[12]))
+        && (items.size() < 14 || validInvoiceItem(items[13]))
+        && (items.size() < 15 || validInvoiceItem(items[14]))
+        && (items.size() < 16 || validInvoiceItem(items[15]))
+        && (items.size() < 17 || validInvoiceItem(items[16]))
+        && (items.size() < 18 || validInvoiceItem(items[17]))
+        && (items.size() < 19 || validInvoiceItem(items[18]))
+        && (items.size() < 20 || validInvoiceItem(items[19]));
+    }
     function validInvoice(d, uid) {
       return d.keys().hasOnly(['shopId', 'operatorId', 'number', 'createdAt', 'status', 'operator', 'station', 'shopName', 'subtotal', 'tax', 'discount', 'total', 'paymentMode', 'transactionRef', 'items'])
         && d.keys().hasAll(['shopId', 'operatorId', 'number', 'createdAt', 'status', 'operator', 'station', 'shopName', 'subtotal', 'tax', 'discount', 'total', 'paymentMode', 'transactionRef', 'items'])
@@ -49,15 +82,7 @@ service cloud.firestore {
         && d.subtotal is number && d.subtotal >= 0
         && d.tax is number && d.tax >= 0 && d.discount is number && d.discount >= 0
         && d.total is number && d.total >= 0 && boundedString(d.paymentMode, 80)
-        && boundedString(d.transactionRef, 80) && d.items is list
-        && d.items.size() == 1
-        && d.items[0].keys().hasOnly(['partId', 'name', 'sku', 'bin', 'qty', 'unitPrice', 'amount'])
-        && d.items[0].keys().hasAll(['partId', 'name', 'sku', 'bin', 'qty', 'unitPrice', 'amount'])
-        && boundedString(d.items[0].partId, 128) && boundedString(d.items[0].name, 160)
-        && boundedString(d.items[0].sku, 80) && boundedString(d.items[0].bin, 40)
-        && d.items[0].qty is int && d.items[0].qty > 0 && d.items[0].qty <= 1000000
-        && d.items[0].unitPrice is number && d.items[0].unitPrice >= 0
-        && d.items[0].amount is number && d.items[0].amount >= 0;
+        && boundedString(d.transactionRef, 80) && validInvoiceItems(d.items);
     }
     function validMovement(d, uid) {
       return d.keys().hasOnly(['shopId', 'operatorId', 'partId', 'partName', 'sku', 'action', 'quantityDelta', 'quantityAfter', 'note', 'invoiceId', 'createdAt'])
@@ -109,7 +134,7 @@ service cloud.firestore {
           && request.resource.data.shopId == resource.data.shopId
           && request.resource.data.createdAt == resource.data.createdAt
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['qty', 'updatedAt']);
-        allow delete: if false;
+        allow delete: if signedInAs(shopId);
       }
       match /invoices/{invoiceId} {
         allow read: if signedInAs(shopId);

@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard.html
+Disallow: /scan.html
+
+Sitemap: https://crit-spare.web.app/sitemap.xml
+

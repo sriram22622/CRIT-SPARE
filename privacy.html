@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0b0e">
+  <title>CRIT-SPARE • Privacy Policy</title>
+  <meta name="description" content="CRIT-SPARE Privacy Policy. Learn how we handle operator data, shop records, and browser storage with complete transparency.">
+  <meta property="og:title" content="CRIT-SPARE • Privacy Policy">
+  <meta property="og:description" content="Transparent information handling for spare parts inventory, operator profiles, and billing records.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://crit-spare.web.app/privacy.html">
+  <meta property="og:image" content="images/og-preview.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="CRIT-SPARE • Privacy Policy">
+  <meta name="twitter:description" content="Learn how shop inventory and operator data is protected.">
+  <meta name="twitter:image" content="images/og-preview.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Material+Symbols+Outlined:FILL@0..1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="apple-touch-icon" href="favicon.svg">
+</head>
+<body class="page page--legal" data-page="privacy">
+  <div class="toast-region" data-toast-region aria-live="polite" role="status" hidden></div>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="material-symbols-outlined" aria-hidden="true">token</span>CRIT-SPARE</a>
+    <div class="topbar__actions">
+      <a class="button button--muted button--small" data-action="sign-in" href="auth.html">Sign in</a>
+      <button type="button" class="button button--muted button--small" data-action="logout" hidden>Logout</button>
+      <a class="avatar" href="dashboard.html" aria-label="Operator profile">OP</a>
+    </div>
+  </header>
+  <main id="main-content" class="site-main legal-main">
+    <header class="legal-hero">
+      <p class="breadcrumb"><a href="index.html" class="text-link">Home</a> / <a href="legal.html" class="text-link">Legal</a> / Privacy Policy</p>
+      <p class="eyebrow">DATA PROTECTION &amp; TRANSPARENCY</p>
+      <h1>Privacy <em>Policy</em></h1>
+      <p>Plain-language information about how CRIT-SPARE processes shop inventory, operator profiles, and authentication records.</p>
+      <small>Effective Date: 17 November 2026</small>
+    </header>
+    <section class="legal-section card-glass" id="privacy-content">
+      <p class="eyebrow">01 • INFORMATION WE COLLECT</p>
+      <h2>What information is processed</h2>
+      <p>When you create and manage a shop account, we process the necessary information to keep your station operational:</p>
+      <ul>
+        <li><strong>Account Details:</strong> Operator name, email address, password credential, and station identifier.</li>
+        <li><strong>Phone Verification:</strong> Mobile phone number for SMS OTP security checks to prevent automated abuse.</li>
+        <li><strong>Shop Records:</strong> Shop name, inventory parts, quantities, bin locations, invoices, and audit counts created by your operators.</li>
+      </ul>
+
+      <p class="eyebrow">02 • HOW WE USE INFORMATION</p>
+      <h2>Purpose of processing</h2>
+      <p>We process information solely to provide inventory management, billing, operator authentication, and fraud prevention. We do not sell operator data, nor do we use advertising trackers or third-party behavioral profiling.</p>
+
+      <p class="eyebrow">03 • INFRASTRUCTURE &amp; SECURITY</p>
+      <h2>Service providers and security</h2>
+      <p>Our application uses industry-standard Cloud infrastructure:</p>
+      <ul>
+        <li><strong>Firebase Authentication:</strong> Manages secure passkey and token authentication sessions.</li>
+        <li><strong>Cloud Firestore:</strong> Stores shop inventory, invoices, and activity logs protected by granular per-shop security rules.</li>
+        <li><strong>Google reCAPTCHA:</strong> Defends phone verification against bot spam and automated attacks.</li>
+        <li><strong>Encrypted Transport:</strong> All data in transit is encrypted using modern TLS (HTTPS) with Strict-Transport-Security.</li>
+      </ul>
+
+      <p class="eyebrow">04 • YOUR CHOICES &amp; STORAGE</p>
+      <h2>Browser storage &amp; account controls</h2>
+      <p>You can manage session persistence using the "Remember sign-in on this device" preference on the sign-in page. You may update your profile details at any time from your dashboard or contact your shop administrator to request complete record deletion.</p>
+    </section>
+  </main>
+  <footer class="footer">
+    <a class="brand" href="index.html">CRIT-SPARE</a>
+    <span>© 2025 CRIT-SPARE. All rights reserved.</span>
+    <a class="footer-policy-link" href="terms.html">Terms &amp; Conditions</a>
+    <a class="footer-policy-link" href="privacy.html">Privacy Policy</a>
+    <button class="footer-policy-link" type="button" popovertarget="inventory-help-popover">Inventory help</button>
+    <button class="footer-policy-link" type="button" popovertarget="account-help-popover">Account help</button>
+    <button class="footer-policy-link" type="button" popovertarget="device-help-popover">Device help</button>
+    <span class="pill pill--green">System ready • HTTPS Secured</span>
+  </footer>
+  <nav class="dock" aria-label="Primary navigation">
+    <a class="dock__item" href="index.html"><span class="material-symbols-outlined" aria-hidden="true">home</span><small>Home</small></a>
+    <a class="dock__item" href="inventory.html"><span class="material-symbols-outlined" aria-hidden="true">inventory_2</span><small>Inventory</small></a>
+    <a class="dock__item" href="invoice.html"><span class="material-symbols-outlined" aria-hidden="true">receipt_long</span><small>Bills</small></a>
+    <a class="dock__item" href="dashboard.html"><span class="material-symbols-outlined" aria-hidden="true">hub</span><small>Dashboard</small></a>
+    <a class="dock__item" href="dashboard.html"><span class="material-symbols-outlined" aria-hidden="true">person</span><small>Profile</small></a>
+  </nav>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

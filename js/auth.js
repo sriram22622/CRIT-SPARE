@@ -1,5 +1,5 @@
 import { api } from './api.js';
-import { cacheProfile, STORAGE_KEYS, USE_MOCK } from './config.js';
+import { cacheProfile, isLocalDev, STORAGE_KEYS, USE_MOCK } from './config.js';
 import { beginPhoneVerification, initializePhoneRecaptcha, resetPhoneRecaptcha, verifyPhoneCode } from './firebase.js';
 
 export function token() { return USE_MOCK ? localStorage.getItem(STORAGE_KEYS.token) : ''; }
@@ -33,18 +33,50 @@ export function initAuth() {
       if (status) status.textContent = error.message;
     });
   });
+  document.querySelectorAll('[data-action="demo-login"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      btn.disabled = true;
+      const demoOperator = {
+        id: 'operator-04',
+        name: 'Tarun K.',
+        role: 'Lead Technician',
+        station: 'dock-04',
+        shopName: 'Main Station Shop',
+        shopId: 'shop-local-demo',
+        identity: 'demo@crit-spare.local',
+        phoneVerified: true
+      };
+      localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(demoOperator));
+      localStorage.setItem(STORAGE_KEYS.token, `mock.demo.${Date.now()}`);
+      document.dispatchEvent(new CustomEvent('app:toast', { detail: 'Signed in to demo shop.' }));
+      location.href = returnAfterSignIn();
+    });
+  });
   document.querySelectorAll('[data-form]').forEach(form => form.addEventListener('submit', async event => {
     event.preventDefault(); if (!form.reportValidity()) return;
     const submit = form.querySelector('[type="submit"]'); const feedback = form.querySelector('[data-form-feedback]');
     submit.disabled = true; feedback.hidden = false; feedback.textContent = 'Signing in…';
     try {
       const fields = new FormData(form);
+      if (fields.get('_hp_security')) throw new Error('Spam protection triggered. Submission blocked.');
       if (form.dataset.form === 'signup' && fields.get('terms') !== 'on') throw new Error('Please agree to the Terms and Conditions before creating your shop.');
       const payload = form.dataset.form === 'signin'
         ? { identity: fields.get('identity').trim(), passkey: fields.get('passkey') }
         : { shopName: fields.get('shop').trim(), operatorName: fields.get('operator').trim(), station: document.querySelector('#station')?.value || 'dock-04', identity: fields.get('email').trim(), phone: fields.get('phone')?.trim(), passkey: fields.get('passkey'), termsAccepted: fields.get('terms') === 'on' };
-      const result = form.dataset.form === 'signin' ? await api.login(payload) : await api.register(payload);
-      if (USE_MOCK) localStorage.setItem(STORAGE_KEYS.token, result.token); else localStorage.removeItem(STORAGE_KEYS.token);
+      let result;
+      try {
+        result = form.dataset.form === 'signin' ? await api.login(payload) : await api.register(payload);
+      } catch (err) {
+        if (isLocalDev) {
+          const { mockRequest } = await import('./api.js');
+          result = form.dataset.form === 'signin'
+            ? await mockRequest('POST', '/auth/login', payload)
+            : await mockRequest('POST', '/auth/register', payload);
+        } else {
+          throw err;
+        }
+      }
+      if (USE_MOCK || isLocalDev) localStorage.setItem(STORAGE_KEYS.token, result.token); else localStorage.removeItem(STORAGE_KEYS.token);
       localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(cacheProfile(result.user))); location.href = returnAfterSignIn();
     } catch (error) { feedback.hidden = false; feedback.textContent = error.message; document.dispatchEvent(new CustomEvent('app:toast', { detail: error.message })); }
     finally { submit.disabled = false; }
@@ -68,8 +100,16 @@ export function initAuth() {
     } catch (error) {
       await resetPhoneRecaptcha();
       const message = phoneErrorMessage(error);
-      if (status) status.textContent = message;
-      document.dispatchEvent(new CustomEvent('app:toast', { detail: message }));
+      if (isLocalDev) {
+        if (status) status.textContent = 'Localhost dev: Phone check auto-approved for testing.';
+        const otpWrap = form.querySelector('[data-phone-otp]');
+        if (otpWrap) otpWrap.hidden = false;
+        const otpInput = form.querySelector('[name="otp"]');
+        if (otpInput) otpInput.value = '123456';
+      } else {
+        if (status) status.textContent = message;
+        document.dispatchEvent(new CustomEvent('app:toast', { detail: message }));
+      }
     } finally { button.disabled = false; }
   });
   document.querySelector('[data-action="verify-phone-otp"]')?.addEventListener('click', async event => {
@@ -80,9 +120,16 @@ export function initAuth() {
       if (status) status.textContent = 'Phone checked. You can create your shop.';
       code.disabled = true; form.querySelector('[name="phone"]').readOnly = true;
     } catch (error) {
-      const message = phoneErrorMessage(error);
-      if (status) status.textContent = message;
-      document.dispatchEvent(new CustomEvent('app:toast', { detail: message }));
+      if (isLocalDev) {
+        if (status) status.textContent = 'Phone checked. You can create your shop.';
+        if (code) code.disabled = true;
+        const phoneInput = form?.querySelector('[name="phone"]');
+        if (phoneInput) phoneInput.readOnly = true;
+      } else {
+        const message = phoneErrorMessage(error);
+        if (status) status.textContent = message;
+        document.dispatchEvent(new CustomEvent('app:toast', { detail: message }));
+      }
     } finally { button.disabled = false; }
   });
   document.querySelector('[data-action="forgot-password"]')?.addEventListener('click', async event => {

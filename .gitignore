@@ -1,8 +1,20 @@
 # Local environment files
 .env
 .env.*
+.env*.local
 !.env.example
 .vscode/
+
+# Temporary and test scratch files
+scratch/
+
+# OS and Editor artifacts
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vs/
 
 # Dependencies and generated logs
 node_modules/
@@ -15,23 +27,24 @@ ui-debug.log
 # Local agent/project instructions are not part of the published app
 AGENTS.md
 
-# Credentials: never commit Firebase Admin/service account keys
+# Credentials: never commit Firebase Admin/service account keys or secrets
 serviceAccount*.json
 *-firebase-adminsdk-*.json
 *-service-account*.json
+*service_account*.json
+credentials*.json
+secrets*.json
 *.pem
+*.key
+*.p12
+*.pfx
+*.mobileprovision
 
 # Local Firebase browser configuration (keep out of GitHub)
 js/firebase-config.local.js
 
 # Synced project source material must not be published
 sources/
-
-# Common local secrets and signing keys
-*.key
-*.p12
-*.pfx
-*.mobileprovision
 
 # Local database and backup files
 *.sqlite

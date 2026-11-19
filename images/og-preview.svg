@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="65%">
+      <stop offset="0%" stop-color="#181c26"/>
+      <stop offset="60%" stop-color="#0e1017"/>
+      <stop offset="100%" stop-color="#06070a"/>
+    </radialGradient>
+    <radialGradient id="gold-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffb800" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#ffb800" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gold-text" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffe399"/>
+      <stop offset="100%" stop-color="#ffb800"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="600" cy="270" r="320" fill="url(#gold-glow)"/>
+  <g stroke="#ffffff" stroke-opacity="0.08" stroke-width="1" fill="none">
+    <circle cx="600" cy="270" r="180"/>
+    <circle cx="600" cy="270" r="260"/>
+    <circle cx="600" cy="270" r="340"/>
+  </g>
+  <circle cx="600" cy="270" r="44" fill="#1b1e26" stroke="#ffb800" stroke-width="2.5"/>
+  <path d="M585 270 L600 255 L615 270 L600 285 Z" fill="#ffb800"/>
+  <text x="600" y="380" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="48" font-weight="800" letter-spacing="4" fill="url(#gold-text)" text-anchor="middle">CRIT-SPARE</text>
+  <text x="600" y="420" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="22" font-weight="600" letter-spacing="1" fill="#ffffff" fill-opacity="0.85" text-anchor="middle">Critical Spare Parts &amp; Real-Time Inventory Control</text>
+  <text x="600" y="460" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" fill="#8f96a3" text-anchor="middle">Live Stock Tracking • Thermal Billing • Phone QR Audit • Online Sync</text>
+  <rect x="500" y="500" width="200" height="42" rx="21" fill="#ffb800"/>
+  <text x="600" y="526" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="700" fill="#08090c" text-anchor="middle">SYSTEM OPERATIONAL</text>
+</svg>
+

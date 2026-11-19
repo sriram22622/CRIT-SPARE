@@ -11,7 +11,7 @@ This project uses Firebase Authentication and Cloud Firestore directly from the 
 - Email/password authentication: configured for deployment in `firebase.json`
 - Phone OTP UI: implemented for new accounts and for adding a verified number to an existing profile. Phone provider and SMS-region permissions must be enabled in Firebase Console before sending real codes.
 
-The first operator creates an account from the sign-up form. Registration provisions a private shop, operator profile, and four starter parts. Subsequent accounts create their own isolated shop. The dashboard profile card lets the signed-in operator update their name, shop, and station; existing accounts can add a verified phone there.
+The first operator creates an account from the sign-up form. Registration provisions a private shop and operator profile starting with 0 stock items, ready for manual stock addition. Subsequent accounts create their own isolated shop. The dashboard profile card lets the signed-in operator update their name, shop, and station; existing accounts can add a verified phone there.
 
 ## Enable and test phone verification
 

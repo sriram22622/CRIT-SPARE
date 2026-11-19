@@ -1,11 +1,18 @@
 import { getFirebase, getFirebaseUser, getVerifiedPhone, normalizePhone } from './firebase.js';
 
-const seedParts = [
-  { name: 'Cryo-Resistor Pack X9', sku: 'CR-9041-B', bin: 'A-04', qty: 428, reserved: 32, lowThreshold: 20, criticalThreshold: 5, reorderQuantity: 80, unitPrice: 1700 },
-  { name: 'Titanium Solenoid Valve', sku: 'TSV-882', bin: 'C-12', qty: 14, reserved: 0, lowThreshold: 20, criticalThreshold: 5, reorderQuantity: 60, unitPrice: 14200 },
-  { name: 'Optical Prism Coupler', sku: 'OPC-404', bin: 'D-01', qty: 4, reserved: 0, lowThreshold: 20, criticalThreshold: 5, reorderQuantity: 50, unitPrice: 8900 },
-  { name: 'Magnetic Flux Sensor', sku: 'MFS-109', bin: 'B-08', qty: 0, reserved: 0, lowThreshold: 20, criticalThreshold: 5, reorderQuantity: 120, unitPrice: 6200 }
-];
+const seedParts = [];
+
+const isAiSeedPart = part => {
+  if (!part) return false;
+  const id = String(part.id || '').toLowerCase();
+  const sku = String(part.sku || '').toUpperCase();
+  const name = String(part.name || '').toLowerCase();
+  return (
+    id.includes('cryo-resistor') || id.includes('titanium-solenoid') || id.includes('optical-prism') || id.includes('magnetic-flux') ||
+    sku === 'CR-9041-B' || sku === 'TSV-882' || sku === 'OPC-404' || sku === 'MFS-109' ||
+    name.includes('cryo-resistor') || name.includes('titanium solenoid') || name.includes('optical prism') || name.includes('magnetic flux')
+  );
+};
 
 const fail = (message, status = 400) => Object.assign(new Error(message), { status });
 const number = value => Number(value || 0);
@@ -102,10 +109,7 @@ async function register(body) {
   batch.set(sdk.doc(sdk.db, 'shops', uid), { ownerUid: uid, name: shopName, station, createdAt: now });
   const profile = { shopId: uid, name: operatorName, identity, phone, role: 'Lead Technician', station, shopName, createdAt: now, termsAcceptedAt: now };
   batch.set(sdk.doc(sdk.db, 'operators', uid), profile);
-  for (const seed of seedParts) {
-    const partRef = sdk.doc(sdk.collection(sdk.db, ...shopPath(uid, 'parts')));
-    batch.set(partRef, { ...seed, shopId: uid, createdAt: now, updatedAt: now });
-  }
+  // New shop accounts start with 0 stock items; operators manually add more stocks
   try {
     await batch.commit();
   } catch (error) {
@@ -121,7 +125,18 @@ async function listParts(path) {
   const search = (searchParams.get('search') || '').trim().toLowerCase();
   const status = (searchParams.get('status') || '').trim();
   const snapshot = await context.getDocs(context.collection(context.db, ...shopPath(context.shopId, 'parts')));
-  return snapshot.docs.map(item => publicPart(item.id, item.data()))
+
+  // Background cleanup of AI sample parts from existing accounts in Firestore
+  for (const docSnap of snapshot.docs) {
+    const data = docSnap.data();
+    if (isAiSeedPart({ id: docSnap.id, ...data })) {
+      try { context.deleteDoc(docSnap.ref); } catch { /* ignore non-blocking deletion */ }
+    }
+  }
+
+  return snapshot.docs
+    .map(item => publicPart(item.id, item.data()))
+    .filter(part => !isAiSeedPart(part))
     .filter(part => !search || `${part.name} ${part.sku} ${part.bin}`.toLowerCase().includes(search))
     .filter(part => !status || status === 'all' || part.status === status)
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -193,6 +208,96 @@ async function dispense(partId, body) {
   return result;
 }
 
+async function addPart(body) {
+  const name = String(body.name || '').trim();
+  const sku = String(body.sku || '').trim().toUpperCase();
+  const bin = String(body.bin || 'A-01').trim().toUpperCase() || 'A-01';
+  const qty = Number(body.qty) || 0;
+  const unitPrice = Number(body.unitPrice) || 0;
+  if (!name || !sku) throw fail('Part name and SKU are required.', 400);
+  if (!validNonNegativeInt(qty)) throw fail('Quantity must be a valid non-negative whole number.', 400);
+  const context = await authContext();
+  const partRef = context.doc(context.collection(context.db, ...shopPath(context.shopId, 'parts')));
+  const now = context.serverTimestamp();
+  const partData = {
+    name,
+    sku,
+    bin,
+    qty,
+    reserved: 0,
+    lowThreshold: 5,
+    criticalThreshold: 2,
+    reorderQuantity: 20,
+    unitPrice: Math.max(0, unitPrice),
+    shopId: context.shopId,
+    createdAt: now,
+    updatedAt: now
+  };
+  await context.setDoc(partRef, partData);
+  if (qty > 0) {
+    const movementRef = context.doc(context.collection(context.db, ...shopPath(context.shopId, 'stockMovements')));
+    await context.setDoc(movementRef, movementData({ context, part: { id: partRef.id, ...partData }, action: 'add_stock', delta: qty, note: 'Initial stock' }));
+  }
+  return { part: publicPart(partRef.id, partData) };
+}
+
+async function createInvoice(body) {
+  if (!Array.isArray(body.items) || body.items.length < 1 || body.items.length > 20) throw fail('Add between 1 and 20 items to the bill.', 400);
+  for (const item of body.items) {
+    const qty = Number(item?.qty);
+    if (!validPositiveInt(qty)) throw fail('Each item quantity must be a whole number greater than zero.', 400);
+  }
+  const context = await authContext();
+  const invoiceRef = context.doc(context.collection(context.db, ...shopPath(context.shopId, 'invoices')));
+  const createdAt = context.serverTimestamp();
+
+  const stockItems = body.items.filter(item => item?.partId && !String(item.partId).startsWith('custom-'));
+  const customItems = body.items.filter(item => !item?.partId || String(item.partId).startsWith('custom-'));
+
+  const partRefs = stockItems.map(item => context.doc(context.db, ...shopPath(context.shopId, 'parts'), item.partId));
+  const movementRefs = stockItems.map(() => context.doc(context.collection(context.db, ...shopPath(context.shopId, 'stockMovements'))));
+
+  return context.runTransaction(context.db, async transaction => {
+    const snapshots = [];
+    for (const partRef of partRefs) snapshots.push(await transaction.get(partRef));
+    const stockSelections = stockItems.map((item, index) => {
+      const snapshot = snapshots[index];
+      if (!snapshot.exists()) throw fail('A selected stock item could not be found.', 404);
+      const part = { id: snapshot.id, ...snapshot.data() };
+      const qty = Number(item.qty);
+      if (number(part.qty) < qty) throw fail('Only ' + number(part.qty) + ' units of ' + part.name + ' are available.', 409);
+      return { part, qty, partRef: partRefs[index], movementRef: movementRefs[index] };
+    });
+    const items = [
+      ...stockSelections.map(({ part, qty }) => {
+        const unitPrice = number(part.unitPrice);
+        return { partId: part.id, name: part.name, sku: part.sku, bin: part.bin || '', qty, unitPrice, amount: Number((unitPrice * qty).toFixed(2)) };
+      }),
+      ...customItems.map(item => {
+        const qty = Number(item.qty);
+        const unitPrice = Number(item.unitPrice || 0);
+        return { partId: item.partId || 'custom', name: String(item.name || 'Custom item').trim(), sku: String(item.sku || 'CUSTOM').trim(), bin: 'CUSTOM', qty, unitPrice, amount: Number((unitPrice * qty).toFixed(2)) };
+      })
+    ];
+    const subtotal = Number(items.reduce((sum, item) => sum + item.amount, 0).toFixed(2));
+    const tax = Number((subtotal * 0.18).toFixed(2));
+    const invoice = {
+      shopId: context.shopId, operatorId: context.operatorId, number: 'TX-' + invoiceRef.id.slice(-6).toUpperCase(),
+      createdAt, status: 'dispensed', operator: context.profile.name, station: context.profile.station || 'Dock #04', shopName: context.profile.shopName || '',
+      subtotal, tax, discount: 0, total: Number((subtotal + tax).toFixed(2)), paymentMode: 'UPI / Quantum Ledger',
+      transactionRef: 'QTM-' + Date.now(), items
+    };
+    const updatedParts = stockSelections.map(({ part, qty, partRef, movementRef }) => {
+      const updated = { ...part, qty: number(part.qty) - qty };
+      transaction.update(partRef, { qty: updated.qty, updatedAt: createdAt });
+      transaction.set(movementRef, movementData({ context, part: updated, action: 'dispense', delta: -qty, note: 'Invoice ' + invoice.number, invoiceId: invoiceRef.id }));
+      return publicPart(part.id, updated);
+    });
+    transaction.set(invoiceRef, invoice);
+    return { invoice: publicInvoice(invoiceRef.id, { ...invoice, createdAt: new Date() }), parts: updatedParts };
+  });
+}
+
 async function adjustStock(partId, body, mode) {
   const rawQty = mode === 'audit' ? body.countedQty : body.qty;
   const qty = Number(rawQty);
@@ -253,7 +358,17 @@ async function reconcile(body) {
 
 async function invoiceById(id) {
   const context = await authContext();
-  const snapshot = await context.getDoc(context.doc(context.db, ...shopPath(context.shopId, 'invoices'), id));
+  let snapshot = await context.getDoc(context.doc(context.db, ...shopPath(context.shopId, 'invoices'), id));
+  if (!snapshot.exists()) {
+    try {
+      const invoicesColl = context.collection(context.db, ...shopPath(context.shopId, 'invoices'));
+      const q = context.query(invoicesColl, context.where('number', '==', String(id).toUpperCase().trim()), context.limit(1));
+      const querySnap = await context.getDocs(q);
+      if (!querySnap.empty) {
+        snapshot = querySnap.docs[0];
+      }
+    } catch { /* ignore and throw not found below */ }
+  }
   if (!snapshot.exists()) throw fail('Invoice not found.', 404);
   return { invoice: publicInvoice(snapshot.id, snapshot.data()) };
 }
@@ -339,6 +454,7 @@ export async function firebaseRequest(method, path, body = {}) {
     if (method === 'POST' && route === '/auth/register') return await register(body);
     if (method === 'GET' && route === '/health') return { status: 'ok' };
     if (method === 'GET' && route === '/parts') return await listParts(path);
+    if (method === 'POST' && (route === '/parts' || route.endsWith('/parts'))) return await addPart(body);
     const match = route.match(/^\/parts\/([^/]+)(?:\/(dispense|restock|audit|reorder))?$/);
     if (match) {
       const partId = decodeURIComponent(match[1]);
@@ -348,6 +464,7 @@ export async function firebaseRequest(method, path, body = {}) {
       if (method === 'POST' && match[2] === 'reorder') return await reorder(partId);
     }
     if (method === 'POST' && route === '/scan/reconcile') return await reconcile(body);
+    if (method === 'POST' && route === '/invoices') return await createInvoice(body);
     const invoiceMatch = route.match(/^\/invoices\/([^/]+)$/);
     if (method === 'GET' && invoiceMatch) return await invoiceById(decodeURIComponent(invoiceMatch[1]));
     if (method === 'GET' && route === '/operator/metrics') return await metrics();
